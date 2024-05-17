@@ -1,0 +1,317 @@
+<?php 
+session_start();
+
+if (isset($_SESSION['id']) && isset($_SESSION['email'])) {
+
+    // Fetch user's files
+    include "db_conn.php";
+    $user_id = $_SESSION['id'];
+    $sql = "SELECT * FROM files WHERE user_id='$user_id'";
+    $result = mysqli_query($conn, $sql);
+    $files = mysqli_fetch_all($result, MYSQLI_ASSOC);
+
+    // Fetch user's folders
+    $user_id = $_SESSION['id'];
+    $sql2 = "SELECT id, label_name FROM labels WHERE user_id='$user_id'";
+    $result2 = mysqli_query($conn, $sql2);
+    $labels = mysqli_fetch_all($result2, MYSQLI_ASSOC);
+
+?>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nimbus: Home</title>
+    <link rel="stylesheet" href="main.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css"/>
+</head>
+<body>
+    <div id="container">
+        <div id="left-column">
+          <div class="forlogo">
+            <img src="img/logo.png" alt="Nimbus Logo" class="logo">
+            <h1 class="logoname">Nimbus</h1>
+          </div>
+          <ul class="tabs">
+              <li class="tab">
+                <form id="upload-form" action="upload.php" method="post" enctype="multipart/form-data">
+                    <label for="pdfFile" class="tab-link" style="cursor:pointer;"><i class="fa fa-file-upload"></i> Upload PDF File</label>
+                    <input type="file" name="pdfFile" id="pdfFile" accept=".pdf" style="display:none;">
+                </form>
+              </li>
+              <li class="tab"><a href="#" class="tab-link create-folder-btn"><i class="fa fa-folder-plus"></i> Create New Label</a></li>
+              <hr>
+              <li class="tab"><a href="#" class="tab-link"><i class="fa fa-folder"></i> All Files</a></li>
+              <?php foreach ($labels as $label): ?>
+                  <li class="tab" oncontextmenu="return showCustomMenu1(event);"><a href="#" class="tab-link"><i class="fa fa-folder"></i> <?php echo htmlspecialchars($label['label_name']); ?></a></li>
+              <?php endforeach; ?>
+              <hr>
+              <li class="tab"><a href="accsettings.php" class="tab-link"><i class="fa fa-cog"></i> Account Settings</a></li>
+              
+              <li class="tab"><a href="logout.php" class="tab-link"><i class="fa fa-sign-out-alt"></i> Sign Out</a></li>
+          </ul>
+        </div>
+        <div id="create-folder-modal" class="modal">
+            <div class="modal-content">
+              <h2 class="createHead">Create New Label</h2>
+              <form action="create_folder.php" method="post" class="createForm">
+                <input type="text" id="folder-name" name="folder_name" required class="inputFolder">
+                <div class="formCont">
+                    <button class="close">Close</button>
+                    <input type="submit" value="Create" class="buttonCreate">
+                </div>
+              </form>
+            </div>
+        </div>
+        <!-- <div id="create-folder-modal" class="modal">
+          <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Create New Label</h2>
+            <form action="create_folder.php" method="post">
+              <label for="folder-name">Label Name:</label>
+              <input type="text" id="folder-name" name="folder_name" required>
+              <input type="submit" value="Create">
+            </form>
+          </div>
+        </div> -->
+        <div id="right-column">
+          <div class="navi">
+            <form>
+                <input class="search" type="text" id="search-input" placeholder="Search..." oninput="filterFiles()">
+                <i class="fas fa-search"></i>
+            </form>
+            <img src="img/user.png" alt="usericon" class="usericon">
+          </div>
+          <div class="main">
+            <div class="allfiles">
+              <div class="filetabname">
+                <h2 class="tabname">My Files</h2>
+              </div>
+              <div class="files" id="file-list" data-file-id="123">
+                <?php foreach ($files as $file): ?>
+                  <div class="file" data-file-id="<?php echo $file['id']; ?>" oncontextmenu="return showCustomMenu(event);">
+                    <a href="view-pdf.php?id=<?php echo $file['id']; ?>" class="file-link" target="_blank">
+                      <div class="iconcont">
+                        <img src="img/pdf.png" alt="pdficon" class="pdficon">
+                      </div>
+                      <div class="filenamecont">
+                        <p class="filename"><?php echo htmlspecialchars($file['file_name']); ?></p>
+                      </div>
+                    </a>
+                    
+                  </div>
+                <?php endforeach; ?>
+              </div>
+            </div>
+          </div>
+        </div>
+    </div>
+    <div id="custom-menu">
+      <div class="menu-item"><i class="fa fa-plus"></i> Add to label</div>
+      <div class="menu-item"><i class="fa fa-download"></i> Download</div>
+      <div class="menu-item"><i class="fa fa-eye"></i> Preview</div>
+      <div class="menu-item"><i class="fa fa-info-circle"></i> View Details</div>
+      <div class="menu-item"><i class="fa fa-edit"></i> Rename File</div>
+      <div class="menu-item"><i class="fa fa-trash"></i> Delete PDF</div>
+    </div>
+    <div id="custom-menu-folder">
+      <div class="menu-item"><i class="fa fa-eye"></i> Open Label</div>
+      <div class="menu-item"><i class="fa fa-edit"></i> Rename Label</div>
+      <div class="menu-item"><i class="fa fa-trash"></i> Delete Label</div>
+    </div>
+    <div id="add-to-label-modal" class="modal">
+        <div class="modal-content">
+            <h2>Add to Label</h2>
+            <form id="add-to-label-form">
+                <?php foreach ($labels as $label): ?>
+                    <input type="checkbox" id="label-<?php echo $label['id']; ?>" name="label-<?php echo $label['id']; ?>">
+                    <label for="label-<?php echo $label['id']; ?>"><?php echo htmlspecialchars($label['label_name']); ?></label>
+                    <br>
+                <?php endforeach; ?>
+                <button type="button" id="add-to-label-submit">Done</button>
+            </form>
+        </div>
+    </div>
+
+<script>
+    function showCustomMenu(event) {
+        event.preventDefault();
+        var menu = document.getElementById("custom-menu");
+
+        // Get the selected file's ID from the file element's data-file-id attribute
+        var fileId = event.currentTarget.getAttribute("data-file-id");
+        menu.setAttribute("data-selected-file-id", fileId);
+        menu.style.display = "block";
+        menu.style.left = event.pageX + "px";
+        menu.style.top = event.pageY + "px";
+        document.onclick = hideCustomMenu;
+        return false;
+    }
+
+
+    function hideCustomMenu() {
+      var menu = document.getElementById("custom-menu");
+      menu.style.display = "none";
+      document.onclick = null;
+    }
+    
+    // Custom Right Click Menu for Folder
+
+    function showCustomMenu1(event) {
+      event.preventDefault();
+      var menu1 = document.getElementById("custom-menu-folder");
+      menu1.style.display = "block";
+      menu1.style.left = event.pageX + "px";
+      menu1.style.top = event.pageY + "px";
+      document.onclick = hideCustomMenu1;
+      return false;
+    }
+
+    function hideCustomMenu1() {
+      var menu1 = document.getElementById("custom-menu-folder");
+      menu1.style.display = "none";
+      document.onclick = null;
+    }
+
+    document.getElementById('pdfFile').addEventListener('change', function() {
+        document.getElementById('upload-form').submit();
+    });
+        // Get the modal
+    var modal = document.getElementById("create-folder-modal");
+
+    // Get the button that opens the modal
+    var btn = document.querySelector(".create-folder-btn");
+
+    // Get the <span> element that closes the modal
+    var span = document.querySelector(".close");
+
+    // When the user clicks on the button, open the modal
+    btn.onclick = function() {
+      modal.style.display = "block";
+    }
+
+    // When the user clicks on <span> (x), close the modal
+    span.onclick = function() {
+      modal.style.display = "none";
+    }
+
+    // When the user clicks anywhere outside of the modal, close it
+    window.onclick = function(event) {
+      if (event.target == modal) {
+        modal.style.display = "none";
+      }
+    }
+    function filterFiles() {
+      // Get the search query entered by the user
+      var searchQuery = document.getElementById("search-input").value.toLowerCase();
+
+      // Get the list of files
+      var fileList = document.getElementById("file-list");
+
+      // Get all the files
+      var files = fileList.getElementsByClassName("file");
+
+      // Loop through all the files and hide the ones that don't match the search query
+      for (var i = 0; i < files.length; i++) {
+        var fileName = files[i].getElementsByClassName("filename")[0].textContent.toLowerCase();
+
+        if (fileName.includes(searchQuery)) {
+          files[i].style.display = "block";
+        } else {
+          files[i].style.display = "none";
+        }
+      }
+    }
+    document.querySelector("#custom-menu .menu-item:nth-child(1)").addEventListener("click", function() {
+        // Get the selected file's ID from the custom menu's data attribute
+        var selectedFileId = document.getElementById("custom-menu").getAttribute("data-selected-file-id");
+
+        document.getElementById("add-to-label-modal").setAttribute("data-selected-file-id", selectedFileId);
+        
+        // Fetch the associated labels for the selected file
+        var xhr = new XMLHttpRequest();
+        xhr.open("POST", "get_file_labels.php", true);
+        xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState == 4 && xhr.status == 200) {
+                var associatedLabels = JSON.parse(xhr.responseText);
+                
+                // Update the checkboxes based on the associated labels
+                var checkboxes = document.querySelectorAll("#add-to-label-form input[type='checkbox']");
+                checkboxes.forEach(function(checkbox) {
+                    var labelId = parseInt(checkbox.id.split("-")[1]);
+                    checkbox.checked = associatedLabels.includes(labelId);
+                });
+
+                // Show the "Add to Label" modal
+                document.getElementById("add-to-label-modal").style.display = "block";
+            }
+        };
+        xhr.send("file_id=" + selectedFileId);
+    });
+
+    document.getElementById("add-to-label-submit").addEventListener("click", function() {
+        // Get the selected file's ID from the modal's data attribute
+        var selectedFileId = document.getElementById("add-to-label-modal").getAttribute("data-selected-file-id");
+
+        // Collect the selected labels
+        var selectedLabels = [];
+        var checkboxes = document.querySelectorAll("#add-to-label-form input[type='checkbox']");
+        checkboxes.forEach(function(checkbox) {
+            if (checkbox.checked) {
+                selectedLabels.push(checkbox.id.split("-")[1]);
+            }
+        });
+
+        // Send an AJAX request to a PHP script to associate the selected labels with the file
+        var xhr = new XMLHttpRequest();
+        xhr.open("POST", "add_labels_to_file.php", true);
+        xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState == 4 && xhr.status == 200) {
+                // Hide the modal and handle the response, e.g., show a success message
+                console.log(xhr.responseText); // Add this line
+                document.getElementById("add-to-label-modal").style.display = "none";
+            }
+        };
+
+        xhr.send("file_id=" + selectedFileId + "&labels=" + JSON.stringify(selectedLabels));
+    });
+
+    document.querySelector("#custom-menu .menu-item:nth-child(5)").addEventListener("click", function() {
+        // Get the selected file's ID from the custom menu's data attribute
+        var selectedFileId = document.getElementById("custom-menu").getAttribute("data-selected-file-id");
+
+        // Ask the user to confirm the deletion
+        var confirmed = confirm("Are you sure you want to delete this PDF file?");
+
+        if (confirmed) {
+            // Send an AJAX request to delete the file
+            var xhr = new XMLHttpRequest();
+            xhr.open("POST", "delete_file.php", true);
+            xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState == 4 && xhr.status == 200) {
+                    // Handle the response, e.g., show a success message
+                    console.log(xhr.responseText); // Add this line
+                    location.reload(); // Reload the page
+                }
+            };
+
+            xhr.send("file_id=" + selectedFileId);
+        }
+    });
+</script>
+
+</body>
+</html>
+
+<?php 
+}else{
+     header("Location: login-page.php");
+     exit();
+}
+ ?>
